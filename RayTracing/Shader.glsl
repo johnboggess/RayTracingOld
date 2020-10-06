@@ -4,6 +4,7 @@
 //$LocalSizeY - local_size_y
 
 #version 430
+#define PI 3.1415926538
 
 struct Sphere
 {
@@ -25,6 +26,31 @@ struct HitInfo
 	bool hit;
 	int bounces;
 };
+
+
+uniform writeonly image2D destTex;
+
+layout (binding=1, rgba8)
+uniform image2D backgroundTex;
+
+uniform mat4 ToWorldSpace;
+uniform vec3 CameraPos;
+uniform float ViewPortWidth;
+uniform float ViewPortHeight;
+uniform int BackgroundWidth;
+uniform int BackgroundHeight;
+
+layout (local_size_x = $LocalSizeX, local_size_y = $LocalSizeY) in;
+
+vec3 Vec3ToSpherical(vec3 vec)
+{
+	return vec3(length(vec), atan(vec.x,-vec.z), acos(vec.y/length(vec)));
+}
+
+vec2 SphericalToUV(vec3 spherical)
+{
+	return vec2((spherical.y + PI) / (2*PI), 1-(spherical.z / PI));
+}
 
 HitInfo hit_sphere(Sphere sphere, Ray r, float tMin, float tMax)
 {
@@ -49,16 +75,6 @@ HitInfo hit_sphere(Sphere sphere, Ray r, float tMin, float tMax)
 
 	return hitInfo;
 }
-
-
-uniform writeonly image2D destTex;
-
-uniform mat4 ToWorldSpace;
-uniform vec3 CameraPos;
-uniform float ViewPortWidth;
-uniform float ViewPortHeight;
-
-layout (local_size_x = $LocalSizeX, local_size_y = $LocalSizeY) in;
 
 bool FireRay(Ray r, Sphere[3] spheres, float tMax, inout HitInfo closest)
 {
@@ -107,5 +123,11 @@ void main()
 	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(closest.normal, 0) : vec4(0,0,0,0));
 	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4((closest.normal+vec3(1,1,1))*.5,0) : vec4(0,0,0,0));
 	vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(1,1,1,1) : vec4(0,0,0,0));
+	
+	vec2 sampleBackroundUV = SphericalToUV(Vec3ToSpherical(ray.direction));
+	ivec2 sampleBackgroundPos = ivec2(BackgroundWidth*sampleBackroundUV.x, BackgroundHeight*sampleBackroundUV.y);
+
+	vec4 bckColor = imageLoad(backgroundTex, sampleBackgroundPos);
+	color = closest.hit? color : bckColor;
 	imageStore(destTex, screenPos, color);
 }

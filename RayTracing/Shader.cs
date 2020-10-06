@@ -6,6 +6,12 @@ using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
+using SixLabors;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Memory;
+using SixLabors.ImageSharp.Processing;
+
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Input;
 
@@ -24,6 +30,11 @@ namespace RayTracing
 
 		private int _renderProgram;
 		private int _computeProgram;
+        private int _renderTexture;
+        private int _backgroundTexture;
+
+		private int _backgroundWidth;
+		private int _backgroundHeight;
 
 		private Camera Camera = new Camera(1f, 16f / 9f, 1);
 
@@ -36,10 +47,10 @@ namespace RayTracing
         }
 
 		public void Initialize()
-		{
-			int texHandle = GenerateDestTex();
-			_renderProgram = SetupRenderProgram(texHandle);
-			_computeProgram = SetupComputeProgram(texHandle);
+        {
+            GenerateTextures();
+			_renderProgram = SetupRenderProgram();
+			_computeProgram = SetupComputeProgram();
 
 			MouseState ms = Mouse.GetCursorState();
 			lastMousePosition.X = ms.X;
@@ -88,7 +99,7 @@ namespace RayTracing
 			GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
 		}
 
-		private int SetupRenderProgram(int texHandle)
+		private int SetupRenderProgram()
 		{
 			int progHandle = GL.CreateProgram();
 			int vp = GL.CreateShader(ShaderType.VertexShader);
@@ -162,23 +173,48 @@ namespace RayTracing
 			return progHandle;
 		}
 
-		private int GenerateDestTex()
+		private void GenerateTextures()
 		{
-			int texHandle;
-			texHandle = GL.GenTexture();
+			_renderTexture = GL.GenTexture();
 
 			GL.ActiveTexture(TextureUnit.Texture0);
-			GL.BindTexture(TextureTarget.Texture2D, texHandle);
+			GL.BindTexture(TextureTarget.Texture2D, _renderTexture);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)All.Linear);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)All.Linear);
 			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, WindowWidth, WindowHeight, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
 
-			GL.BindImageTexture(0, texHandle, 0, false, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba8);
+			GL.BindImageTexture(0, _renderTexture, 0, false, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba8);
+			
 
-			return texHandle;
-		}
+			SixLabors.ImageSharp.Image<Rgba32> bck = SixLabors.ImageSharp.Image.Load<Rgba32>("BackgroundSmaller.jpg");
+			_backgroundWidth = bck.Width;
+			_backgroundHeight = bck.Height;
+			bck.Mutate(x => x.Flip(FlipMode.Vertical));
+			List<byte> pixels = new List<byte>();
+			for(int r = 0; r < bck.Height; r++)
+            {
+				Span<Rgba32> span = bck.GetPixelRowSpan(r);
+				for(int c = 0; c < bck.Width; c++)
+                {
+					pixels.Add(span[c].R);
+					pixels.Add(span[c].G);
+					pixels.Add(span[c].B);
+					pixels.Add(span[c].A);
+				}
+            }
 
-		private int SetupComputeProgram(int texHandle)
+			_backgroundTexture = GL.GenTexture();
+
+            GL.ActiveTexture(TextureUnit.Texture1);
+            GL.BindTexture(TextureTarget.Texture2D, _backgroundTexture);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)All.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)All.Linear);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, bck.Width, bck.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, pixels.ToArray());
+
+            GL.BindImageTexture(1, _backgroundTexture, 0, false, 0, TextureAccess.ReadOnly, SizedInternalFormat.Rgba8);
+        }
+
+		private int SetupComputeProgram()
 		{
 			int progHandle = GL.CreateProgram();
 			int computeShader = GL.CreateShader(ShaderType.ComputeShader);
@@ -203,6 +239,9 @@ namespace RayTracing
 			GL.UseProgram(progHandle);
 
 			GL.Uniform1(GL.GetUniformLocation(progHandle, "destTex"), 0);
+            GL.Uniform1(GL.GetUniformLocation(progHandle, "backgroundTex"), 1);
+			GL.Uniform1(GL.GetUniformLocation(progHandle, "BackgroundWidth"), _backgroundWidth);
+			GL.Uniform1(GL.GetUniformLocation(progHandle, "BackgroundHeight"), _backgroundHeight);
 
 			return progHandle;
 		}

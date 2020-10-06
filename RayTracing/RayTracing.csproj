@@ -7,9 +7,19 @@
 
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="3.2.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.1" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Background.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="BackgroundSmaller.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="BackgroundSmallerC.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Shader.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
