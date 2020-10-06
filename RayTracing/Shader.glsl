@@ -6,10 +6,17 @@
 #version 430
 #define PI 3.1415926538
 
+struct Material
+{
+	vec3 specular;
+	vec3 albedo;
+};
+
 struct Sphere
 {
 	vec3 center;
 	float radius;
+	Material mat;
 };
 
 struct Ray
@@ -60,7 +67,7 @@ vec4 SampleBackground(Ray r)
 	return imageLoad(backgroundTex, sampleBackgroundPos);
 }
 
-HitInfo hit_sphere(Sphere sphere, Ray r, float tMin, float tMax)
+HitInfo hit_sphere(Sphere sphere, Ray r, float tMin, float tMax, inout Material mat)
 {
 	vec3 oc = r.origin-sphere.center;
 	float a = dot(r.direction, r.direction);
@@ -72,26 +79,27 @@ HitInfo hit_sphere(Sphere sphere, Ray r, float tMin, float tMax)
 
 	float t = min(tn,tp);
 
-	//float t = isnan(result)? -1.0 : result;
-
 	HitInfo hitInfo;
 	hitInfo.hitPosition = r.origin + r.direction*t;
 	hitInfo.normal = (hitInfo.hitPosition - sphere.center) / sphere.radius;
 	hitInfo.t = t;
 	hitInfo.hit = discriminant > 0 && (t < tMax && t > tMin);
 	hitInfo.bounces = 0;
+	mat = hitInfo.hit? sphere.mat : mat;
 
 	return hitInfo;
 }
 
-bool FireRay(Ray r, Sphere[3] spheres, float tMax, inout HitInfo closest)
+bool FireRay(Ray r, Sphere[3] spheres, float tMax, inout HitInfo closest, inout Material mat)
 {
 	bool newHit = false;
+	Material sphereMat = mat;
 	for(int i = 0; i < 3; i++)
 	{
-		HitInfo info = hit_sphere(spheres[i], r, 0, tMax);
+		HitInfo info = hit_sphere(spheres[i], r, 0, tMax, sphereMat);
 		info.bounces = closest.bounces;
 		newHit = newHit || info.hit;
+		mat = newHit? sphereMat : mat;
 		closest = info.hit? info : closest;
 		tMax = (info.hit && info.t < tMax)? info.t : tMax;
 	}
@@ -101,22 +109,29 @@ bool FireRay(Ray r, Sphere[3] spheres, float tMax, inout HitInfo closest)
 
 HitInfo RayTrace(Ray ray, Sphere[3] spheres, int maxBounces, inout vec3 color)
 {
-	float energy = 1;
+	vec3 result = vec3(0,0,0);
+
+	vec3 energy = vec3(1,1,1);
+	Material hitMat = Material(vec3(1,1,1), vec3(0,0,0));
+
 	float tMax = 1.0/0;
 	HitInfo closest = HitInfo(vec3(0,0,0), vec3(0,0,0), 0, false, 0);
-	bool newHit = FireRay(ray, spheres, tMax, closest);
+	bool newHit = FireRay(ray, spheres, tMax, closest, hitMat);
+	result += energy * clamp(dot(closest.normal, vec3(1,-1,0)) * -1, .1, 1.0) * hitMat.albedo;
+	energy = energy*hitMat.specular;
 	
-	energy = energy/(float(newHit)+1);
-
 	for(int i = 0; i < maxBounces; i++)
 	{
+		hitMat = Material(vec3(1,1,1), vec3(0,0,0));
 		ray.direction = (newHit)? reflect(ray.direction, closest.normal) : ray.direction;
 		ray.origin = (newHit)? closest.hitPosition : ray.origin;
-		newHit = FireRay(ray, spheres, tMax, closest);
-		energy = energy/(float(newHit)+1);
+		newHit = FireRay(ray, spheres, tMax, closest, hitMat);
+		result += energy * clamp(dot(closest.normal, vec3(1,-1,0)), .1, 1.0) * hitMat.albedo;
+		energy = energy*hitMat.specular;
 	}
 
-	color = SampleBackground(ray).xyz * energy;
+	result+= SampleBackground(ray).xyz * energy;
+	color = result;
 	return closest;
 }
 
@@ -129,7 +144,13 @@ void main()
 	vec3 WSpos = (ToWorldSpace * vec4(VSpos,1)).xyz;
 	
 	
-	Sphere[3] spheres = Sphere[3](Sphere(vec3(0,0,1), .5), Sphere(vec3(0,-100.5,1), 100), Sphere(vec3(0,100.5,1), 100));
+	Sphere[3] spheres = Sphere[3]
+		(
+			Sphere(vec3(0,0,1), .5, Material(vec3(.6,.6,.6), vec3(1,1,1)) ),
+			Sphere(vec3(0,-100.5,1), 100, Material(vec3(.6,.6,.6), vec3(.8,.8,.8)) ), 
+			Sphere(vec3(0,100.5,1), 100, Material(vec3(.6,.6,.6), vec3(.8,.8,.8)) )
+		);
+
 	Ray ray = Ray(CameraPos, WSpos-CameraPos);
 
 	vec3 resultColor = vec3(0,0,0);
