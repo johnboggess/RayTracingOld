@@ -49,7 +49,7 @@ vec3 Vec3ToSpherical(vec3 vec)
 
 vec2 SphericalToUV(vec3 spherical)
 {
-	return vec2((spherical.y + PI) / (2*PI), 1-(spherical.z / PI));
+	return vec2((spherical.y + PI) / (2*PI +.001), 1-(spherical.z / PI));
 }
 
 vec4 SampleBackground(Ray r)
