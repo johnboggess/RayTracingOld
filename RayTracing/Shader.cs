@@ -186,7 +186,7 @@ namespace RayTracing
 			GL.BindImageTexture(0, _renderTexture, 0, false, 0, TextureAccess.WriteOnly, SizedInternalFormat.Rgba8);
 			
 
-			SixLabors.ImageSharp.Image<Rgba32> bck = SixLabors.ImageSharp.Image.Load<Rgba32>("BackgroundSmaller.jpg");
+			SixLabors.ImageSharp.Image<Rgba32> bck = SixLabors.ImageSharp.Image.Load<Rgba32>("Background.png");
 			_backgroundWidth = bck.Width;
 			_backgroundHeight = bck.Height;
 			bck.Mutate(x => x.Flip(FlipMode.Vertical));

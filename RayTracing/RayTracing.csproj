@@ -11,14 +11,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Background.jpg">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="BackgroundSmaller.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="BackgroundSmallerC.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Background.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Shader.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
