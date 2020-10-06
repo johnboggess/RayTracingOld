@@ -52,6 +52,14 @@ vec2 SphericalToUV(vec3 spherical)
 	return vec2((spherical.y + PI) / (2*PI), 1-(spherical.z / PI));
 }
 
+vec4 SampleBackground(Ray r)
+{
+	vec2 sampleBackroundUV = SphericalToUV(Vec3ToSpherical(r.direction));
+	ivec2 sampleBackgroundPos = ivec2(BackgroundWidth*sampleBackroundUV.x, BackgroundHeight*sampleBackroundUV.y);
+
+	return imageLoad(backgroundTex, sampleBackgroundPos);
+}
+
 HitInfo hit_sphere(Sphere sphere, Ray r, float tMin, float tMax)
 {
 	vec3 oc = r.origin-sphere.center;
@@ -91,19 +99,24 @@ bool FireRay(Ray r, Sphere[3] spheres, float tMax, inout HitInfo closest)
 	return newHit;
 }
 
-HitInfo RayTrace(Ray ray, Sphere[3] spheres, int maxBounces)
+HitInfo RayTrace(Ray ray, Sphere[3] spheres, int maxBounces, inout vec3 color)
 {
+	float energy = 1;
 	float tMax = 1.0/0;
 	HitInfo closest = HitInfo(vec3(0,0,0), vec3(0,0,0), 0, false, 0);
 	bool newHit = FireRay(ray, spheres, tMax, closest);
 	
+	energy = energy/(float(newHit)+1);
+
 	for(int i = 0; i < maxBounces; i++)
 	{
 		ray.direction = (newHit)? reflect(ray.direction, closest.normal) : ray.direction;
 		ray.origin = (newHit)? closest.hitPosition : ray.origin;
 		newHit = FireRay(ray, spheres, tMax, closest);
+		energy = energy/(float(newHit)+1);
 	}
 
+	color = SampleBackground(ray).xyz * energy;
 	return closest;
 }
 
@@ -115,19 +128,17 @@ void main()
 	vec3 VSpos = vec3(NDCPos.x * ViewPortWidth, NDCPos.y * ViewPortHeight, 1);
 	vec3 WSpos = (ToWorldSpace * vec4(VSpos,1)).xyz;
 	
+	
 	Sphere[3] spheres = Sphere[3](Sphere(vec3(0,0,1), .5), Sphere(vec3(0,-100.5,1), 100), Sphere(vec3(0,100.5,1), 100));
 	Ray ray = Ray(CameraPos, WSpos-CameraPos);
 
+	vec3 resultColor = vec3(0,0,0);
+	HitInfo closest = RayTrace(ray, spheres, 5, resultColor);
 
-	HitInfo closest = RayTrace(ray, spheres, 10);
 	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(closest.normal, 0) : vec4(0,0,0,0));
 	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4((closest.normal+vec3(1,1,1))*.5,0) : vec4(0,0,0,0));
-	vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(1,1,1,1) : vec4(0,0,0,0));
+	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(1,1,1,1) : vec4(0,0,0,0));
 	
-	vec2 sampleBackroundUV = SphericalToUV(Vec3ToSpherical(ray.direction));
-	ivec2 sampleBackgroundPos = ivec2(BackgroundWidth*sampleBackroundUV.x, BackgroundHeight*sampleBackroundUV.y);
-
-	vec4 bckColor = imageLoad(backgroundTex, sampleBackgroundPos);
-	color = closest.hit? color : bckColor;
-	imageStore(destTex, screenPos, color);
+	//color = closest.hit? color : bckColor;
+	imageStore(destTex, screenPos, vec4(resultColor,0));
 }
