@@ -146,9 +146,9 @@ void main()
 	
 	Sphere[3] spheres = Sphere[3]
 		(
-			Sphere(vec3(0,0,1), .5, Material(vec3(.6,.6,.6), vec3(1,1,1)) ),
-			Sphere(vec3(0,-100.5,1), 100, Material(vec3(.6,.6,.6), vec3(.8,.8,.8)) ), 
-			Sphere(vec3(0,100.5,1), 100, Material(vec3(.6,.6,.6), vec3(.8,.8,.8)) )
+			Sphere(vec3(0,0,1), .5, Material(vec3(.1,.1,.1), vec3(1,1,1)) ),
+			Sphere(vec3(0,-100.5,1), 100, Material(vec3(.1,.1,.1), vec3(.8,.8,.8)) ), 
+			Sphere(vec3(0,100.5,1), 100, Material(vec3(.1,.1,.1), vec3(.8,.8,.8)) )
 		);
 
 	Ray ray = Ray(CameraPos, WSpos-CameraPos);

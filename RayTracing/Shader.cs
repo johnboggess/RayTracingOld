@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Drawing;
-using System.Numerics;
 using System.Runtime.InteropServices;
 
 using SixLabors;
@@ -13,7 +12,8 @@ using SixLabors.ImageSharp.Memory;
 using SixLabors.ImageSharp.Processing;
 
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Input;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Mathematics;
 
 //Basic shader setup based off https://github.com/tgsstdio/OpenTK-Demos/blob/master/ComputeDemo/Demo.cs
 namespace RayTracing
@@ -26,7 +26,7 @@ namespace RayTracing
 		public int LocalSizeY;
 
 		private float speed = .1f;
-		private OpenTK.Vector2 lastMousePosition;
+		private Vector2 lastMousePosition;
 
 		private int _renderProgram;
 		private int _computeProgram;
@@ -37,13 +37,15 @@ namespace RayTracing
 		private int _backgroundHeight;
 
 		private Camera Camera = new Camera(1f, 16f / 9f, 1);
+		private Window _window;
 
-		public Shader(int localSizeX, int localSizeY, int windowWidth, int windowHeight)
+		public Shader(int localSizeX, int localSizeY, int windowWidth, int windowHeight, Window window)
 		{
 			LocalSizeX = localSizeX;
 			LocalSizeY = localSizeY;
 			WindowWidth = windowWidth;
 			WindowHeight = windowHeight;
+			_window = window;
         }
 
 		public void Initialize()
@@ -52,38 +54,38 @@ namespace RayTracing
 			_renderProgram = SetupRenderProgram();
 			_computeProgram = SetupComputeProgram();
 
-			MouseState ms = Mouse.GetCursorState();
+			MouseState ms = _window.MouseState;
 			lastMousePosition.X = ms.X;
 			lastMousePosition.Y = ms.Y;
 		}
 
 		public void Update()
 		{
-			OpenTK.Vector3 vel = new OpenTK.Vector3(0,0,0);
-			KeyboardState ks = Keyboard.GetState();
-			if (ks.IsKeyDown(Key.A))
+			Vector3 vel = new Vector3(0,0,0);
+			KeyboardState ks = _window.KeyboardState;
+			if (ks.IsKeyDown(Keys.A))
 				vel += -Camera.Transform.Right;
-			if (ks.IsKeyDown(Key.D))
+			if (ks.IsKeyDown(Keys.D))
 				vel += Camera.Transform.Right;
-			if (ks.IsKeyDown(Key.S))
+			if (ks.IsKeyDown(Keys.S))
 				vel += -Camera.Transform.Forward;
-			if (ks.IsKeyDown(Key.W))
+			if (ks.IsKeyDown(Keys.W))
 				vel += Camera.Transform.Forward;
 
 			if(vel.LengthSquared > 0)
 				vel = vel.Normalized() * speed;
 			Camera.Transform.Position += vel;
 
-			MouseState ms = Mouse.GetCursorState();
+			MouseState ms = _window.MouseState;
 			float diffX = (ms.X - lastMousePosition.X) / 16;
 			float diffY = (ms.Y - lastMousePosition.Y) / 16;
 			lastMousePosition.X = ms.X;
 			lastMousePosition.Y = ms.Y;
 
-			Camera.Transform.Rotation = OpenTK.Quaternion.FromAxisAngle(Camera.Transform.Right, diffY) * Camera.Transform.Rotation;
-			Camera.Transform.Rotation = OpenTK.Quaternion.FromAxisAngle(OpenTK.Vector3.UnitY, diffX) * Camera.Transform.Rotation;
+			Camera.Transform.Rotation = Quaternion.FromAxisAngle(Camera.Transform.Right, diffY) * Camera.Transform.Rotation;
+			Camera.Transform.Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, diffX) * Camera.Transform.Rotation;
 
-			OpenTK.Matrix4 m = Camera.Transform.GetMatrix();
+			Matrix4 m = Camera.Transform.GetMatrix();
 			GL.UseProgram(_computeProgram);
 			GL.UniformMatrix4(GL.GetUniformLocation(_computeProgram, "ToWorldSpace"), true, ref m);
 			GL.Uniform3(GL.GetUniformLocation(_computeProgram, "CameraPos"), Camera.Transform.Position);

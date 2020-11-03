@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using OpenTK;
+using OpenTK.Mathematics;
+
 namespace RayTracing
 {
     public class Transform
