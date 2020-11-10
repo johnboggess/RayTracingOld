@@ -1,8 +1,4 @@
-﻿//$WindowWidth - width of the window
-//$WindowHeight - height of the window
-//$LocalSizeX - local_size_x
-//$LocalSizeY - local_size_y
-
+﻿-- Compute
 #version 430
 #define PI 3.1415926538
 
@@ -46,8 +42,10 @@ uniform float ViewPortWidth;
 uniform float ViewPortHeight;
 uniform int BackgroundWidth;
 uniform int BackgroundHeight;
+uniform int WindowWidth;
+uniform int WindowHeight;
 
-layout (local_size_x = $LocalSizeX, local_size_y = $LocalSizeY) in;
+layout (local_size_x = 10, local_size_y = 10) in;
 
 vec3 Vec3ToSpherical(vec3 vec)
 {
@@ -117,7 +115,7 @@ HitInfo RayTrace(Ray ray, Sphere[3] spheres, int maxBounces, inout vec3 color)
 	float tMax = 1.0/0;
 	HitInfo closest = HitInfo(vec3(0,0,0), vec3(0,0,0), 0, false, 0);
 	bool newHit = FireRay(ray, spheres, tMax, closest, hitMat);
-	result += energy * clamp(dot(closest.normal, vec3(1,-1,0)) * -1, .1, 1.0) * hitMat.albedo;
+	result += energy * hitMat.albedo;
 	energy = energy*hitMat.specular;
 	
 	for(int i = 0; i < maxBounces; i++)
@@ -126,11 +124,21 @@ HitInfo RayTrace(Ray ray, Sphere[3] spheres, int maxBounces, inout vec3 color)
 		ray.direction = (newHit)? reflect(ray.direction, closest.normal) : ray.direction;
 		ray.origin = (newHit)? closest.hitPosition : ray.origin;
 		newHit = FireRay(ray, spheres, tMax, closest, hitMat);
-		result += energy * clamp(dot(closest.normal, vec3(1,-1,0)), .1, 1.0) * hitMat.albedo;
+		result += energy * hitMat.albedo;
 		energy = energy*hitMat.specular;
 	}
 
-	result+= SampleBackground(ray).xyz * energy;
+	HitInfo occlusionHit = HitInfo(vec3(0,0,0), vec3(0,0,0), 0, false, 0);
+	bool skyOccluded = FireRay(ray, spheres, 1.0/0.0, occlusionHit, hitMat);
+	
+	if(skyOccluded)
+	{
+		result *= vec3(.2,.2,.2);
+	}
+	else
+	{
+		result+= SampleBackground(ray).xyz * energy;
+	}
 	color = result;
 	return closest;
 }
@@ -138,7 +146,7 @@ HitInfo RayTrace(Ray ray, Sphere[3] spheres, int maxBounces, inout vec3 color)
 void main()
 {
 	ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
-	vec2 UVpos = vec2(float(screenPos.x)/$WindowWidth.0, float(screenPos.y)/$WindowHeight.0);
+	vec2 UVpos = vec2(float(screenPos.x)/float(WindowWidth), float(screenPos.y)/float(WindowHeight));
 	vec2 NDCPos = UVpos * 2.0 - vec2(1.0,1.0);
 	vec3 VSpos = vec3(NDCPos.x * ViewPortWidth, NDCPos.y * ViewPortHeight, 1);
 	vec3 WSpos = (ToWorldSpace * vec4(VSpos,1)).xyz;
@@ -146,9 +154,9 @@ void main()
 	
 	Sphere[3] spheres = Sphere[3]
 		(
-			Sphere(vec3(0,0,1), .5, Material(vec3(.1,.1,.1), vec3(1,1,1)) ),
-			Sphere(vec3(0,-100.5,1), 100, Material(vec3(.1,.1,.1), vec3(.8,.8,.8)) ), 
-			Sphere(vec3(0,100.5,1), 100, Material(vec3(.1,.1,.1), vec3(.8,.8,.8)) )
+			Sphere(vec3(0,0,1), .5, Material(vec3(.4,.4,.4), vec3(.5,.5,.5)) ),
+			Sphere(vec3(0,-100.5,1), 100, Material(vec3(.4,.4,.4), vec3(.5,.5,.5)) ), 
+			Sphere(vec3(0,100.5,1), 100, Material(vec3(.4,.4,.4), vec3(.5,.5,.5)) )
 		);
 
 	Ray ray = Ray(CameraPos, WSpos-CameraPos);
@@ -156,10 +164,5 @@ void main()
 	vec3 resultColor = vec3(0,0,0);
 	HitInfo closest = RayTrace(ray, spheres, 5, resultColor);
 
-	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(closest.normal, 0) : vec4(0,0,0,0));
-	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4((closest.normal+vec3(1,1,1))*.5,0) : vec4(0,0,0,0));
-	//vec4 color = 1f/float(max(closest.bounces,1)) * (closest.hit? vec4(1,1,1,1) : vec4(0,0,0,0));
-	
-	//color = closest.hit? color : bckColor;
 	imageStore(destTex, screenPos, vec4(resultColor,0));
 }
